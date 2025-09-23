@@ -1,8 +1,15 @@
 import axios from 'axios';
 
-const baseURL = typeof window !== 'undefined'
-  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000')
-  : process.env.VITE_API_BASE_URL || 'http://localhost:5000';
+const baseURL = (() => {
+  if (typeof window !== 'undefined') {
+    const configured = import.meta.env.VITE_API_BASE_URL;
+    if (configured) return configured;
+    // Default: prod uses same-origin proxy /api, local uses localhost:5000
+    const isLocal = /localhost|127\.0\.0\.1/.test(window.location.hostname);
+    return isLocal ? 'http://localhost:5000' : '/api';
+  }
+  return process.env.VITE_API_BASE_URL || 'http://localhost:5000';
+})();
 
 const api = axios.create({
   baseURL,
