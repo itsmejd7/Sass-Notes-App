@@ -1,5 +1,7 @@
 {
   "builds": [{ "src": "package.json", "use": "@vercel/static-build" }],
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "routes": [
     { "src": "/health", "dest": "/index.html" },
     { "src": "/(.*)", "dest": "/index.html" }
