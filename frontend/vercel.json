@@ -5,6 +5,10 @@
     {
       "source": "/api/(.*)",
       "destination": "https://saas-notes-3xdwek06h-jayeshs-projects-0a118279.vercel.app/$1"
+    },
+    {
+      "source": "/((?!assets|api).*)",
+      "destination": "/index.html"
     }
   ]
 }
