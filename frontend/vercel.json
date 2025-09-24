@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://saas-notes-app-woad.vercel.app/$1"
+      "destination": "https://sass-notes-app-backend.vercel.app/$1"
     },
     {
       "source": "/((?!assets|api).*)",
