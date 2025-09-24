@@ -59,6 +59,27 @@ async function ensureDb() {
   }
 }
 
+// Helper: build base and unique slug
+async function generateUniqueSlug(name, email) {
+  await ensureDb();
+  const baseSlug = (
+    (name && name.trim()) || (email && email.split('@')[0]) || 'tenant'
+  )
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') || 'tenant';
+
+  // Try until we find an unused candidate (collision chance is tiny)
+  // Hard limit to avoid infinite loops
+  for (let i = 0; i < 10; i += 1) {
+    const suffix = Math.random().toString(36).slice(2, 7);
+    const candidate = `${baseSlug}-${suffix}`;
+    const exists = await Tenants.findOne({ slug: candidate });
+    if (!exists) return candidate;
+  }
+  // Fallback to timestamp-based suffix
+  return `${baseSlug}-${Date.now().toString(36)}`;
+}
+
 // ================= Signup =================
 app.post('/signup', async (req, res) => {
   const { name, email, password } = req.body || {};
@@ -70,8 +91,7 @@ app.post('/signup', async (req, res) => {
     if (existing) return res.status(409).json({ error: 'Email already in use' });
 
     const hashed = await bcrypt.hash(password, 10);
-    const baseSlug = (name || email.split('@')[0] || 'tenant').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-    const slug = `${baseSlug}-${Math.random().toString(36).slice(2, 7)}`;
+    const slug = await generateUniqueSlug(name, email);
 
     const tenantInsert = await Tenants.insertOne({ name: name || baseSlug, slug, plan: 'FREE' });
     await Users.insertOne({ email, password: hashed, role: 'ADMIN', tenantId: tenantInsert.insertedId.toString() });
