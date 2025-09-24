@@ -24,12 +24,24 @@ app.use((req, res, next) => {
 });
 app.use(express.json());
 
-const prisma = new PrismaClient();
+// Handle malformed JSON bodies early to avoid 500s
+app.use((err, req, res, next) => {
+  if (err && err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ error: 'Invalid JSON body' });
+  }
+  next();
+});
+
+// Reuse Prisma client across serverless invocations
+const prisma = globalThis.__prisma || new PrismaClient();
+if (!globalThis.__prisma) {
+  globalThis.__prisma = prisma;
+}
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
 // ================= Signup Endpoint =================
 app.post('/signup', async (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password } = req.body || {};
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required' });
@@ -64,7 +76,7 @@ app.post('/signup', async (req, res) => {
 
     return res.json({ message: 'User created' });
   } catch (err) {
-    console.error(err);
+    console.error('POST /signup failed:', err);
     return res.status(500).json({ error: 'Server error' });
   }
 });
@@ -103,7 +115,11 @@ const authMiddleware = (roles = []) => {
 
 // ================= Login Endpoint =================
 app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body || {};
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
 
   try {
     const user = await prisma.user.findUnique({ where: { email } });
@@ -128,7 +144,7 @@ app.post('/login', async (req, res) => {
 
     res.json({ token, tenant: tenantInfo });
   } catch (err) {
-    console.error(err);
+    console.error('POST /login failed:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -166,7 +182,7 @@ app.post('/notes', authMiddleware(), async (req, res) => {
 
     res.json(note);
   } catch (err) {
-    console.error(err);
+    console.error('POST /notes failed:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -177,7 +193,7 @@ app.get('/notes', authMiddleware(), async (req, res) => {
     const notes = await prisma.note.findMany({ where: { tenantId: req.user.tenantId } });
     res.json(notes);
   } catch (err) {
-    console.error(err);
+    console.error('GET /notes failed:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -191,7 +207,7 @@ app.get('/notes/:id', authMiddleware(), async (req, res) => {
     if (!note || note.tenantId !== req.user.tenantId) return res.status(404).json({ error: 'Note not found' });
     res.json(note);
   } catch (err) {
-    console.error(err);
+    console.error('GET /notes/:id failed:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -208,7 +224,7 @@ app.put('/notes/:id', authMiddleware(), async (req, res) => {
     const updated = await prisma.note.update({ where: { id }, data: { title, content } });
     res.json(updated);
   } catch (err) {
-    console.error(err);
+    console.error('PUT /notes/:id failed:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -224,7 +240,7 @@ app.delete('/notes/:id', authMiddleware(), async (req, res) => {
     await prisma.note.delete({ where: { id } });
     res.json({ message: 'Note deleted' });
   } catch (err) {
-    console.error(err);
+    console.error('DELETE /notes/:id failed:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -242,7 +258,7 @@ app.post('/tenants/:slug/upgrade', authMiddleware(['ADMIN']), async (req, res) =
     await prisma.tenant.update({ where: { id: tenant.id }, data: { plan: 'PRO' } });
     res.json({ message: 'Upgraded to Pro. Note limits lifted.' });
   } catch (err) {
-    console.error(err);
+    console.error('POST /tenants/:slug/upgrade failed:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
