@@ -1,5 +1,5 @@
 {
-  "installCommand": "npm ci --ignore-scripts",
+  "installCommand": "npm install --ignore-scripts",
   "buildCommand": "npx prisma generate",
   "outputDirectory": ".",
   "headers": [
